@@ -1,13 +1,9 @@
-
-
 const WALL_MIN = { x: 0, y: 0 };
 const WALL_MAX = { x: 800, y: 600 };
-const BULLET_SPEED = 10;
 
 class Level {
   constructor() {
-    this.levelNumber = 1;
-    this.enemyCount = 6;
+    this.reset();
   }
 
   increaseLevel() {
@@ -68,6 +64,8 @@ class Bullet {
     this.x = x;
     this.y = y;
     this.isEnemyBullet = isEnemyBullet;
+    this.speed = this.isEnemyBullet ? (Math.floor(Math.random() * (5 - 2 + 1)) + 5) : 10 
+
     this.fireCooldown = 0;
   }
 
@@ -77,9 +75,9 @@ class Bullet {
     }
 
     if (this.isEnemyBullet) {
-      this.y += BULLET_SPEED;
+      this.y += this.speed;
     } else {
-      this.y -= BULLET_SPEED;
+      this.y -= this.speed;
     }
 
     return this.y > WALL_MIN.y || this.y + 10 > WALL_MAX.y;
@@ -156,7 +154,7 @@ class Player {
   }
 
   spawnEnemies() {
-    allEnemies.length = 0; // Clear the existing enemies array
+    allEnemies.length = 0;
 
     for (let i = 0; i < this.level.enemyCount; i++) {
       allEnemies.push(new Enemy(Math.floor(Math.random() * 751), 62));
@@ -178,93 +176,90 @@ class Player {
       bullet.y <= this.y + this.h
     );
   }
-  
+}
+
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+const player = new Player();
+const allBullets = [];
+const allEnemies = [];
+
+const backgroundImg = new Image();
+const playerImg = new Image();
+const enemyImg = new Image();
+
+let score = 0;
+
+backgroundImg.src = "space.png";
+playerImg.src = "spaceship.png";
+enemyImg.src = "enemy.png";
+
+for (let i = 0; i < 6; i++) {
+  allEnemies.push(new Enemy(Math.floor(Math.random() * 751), 62));
+}
+
+function update() {
+  player.update(allBullets);
+
+  allBullets.forEach((bullet, index) => {
+    if (!bullet.update()) {
+      allBullets.splice(index, 1);
     }
+  });
 
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
-
-    const player = new Player();
-    const allBullets = [];
-    const allEnemies = [];
-
-    const backgroundImg = new Image();
-    const playerImg = new Image();
-    const enemyImg = new Image();
-
-    let score = 0;
-
-    backgroundImg.src = "space.png";
-    playerImg.src = "spaceship.png";
-    enemyImg.src = "enemy.png";
-
-    for (let i = 0; i < 6; i++) {
-      allEnemies.push(new Enemy(Math.floor(Math.random() * 751), 62));
+  for (let i = allEnemies.length - 1; i >= 0; i--) {
+    const enemy = allEnemies[i];
+    if (enemy.update(allBullets)) {
+      score += 1;
+      allEnemies.splice(i, 1);
     }
+  }
+}
 
-    function draw() {
-      player.update(allBullets);
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(backgroundImg, 0, 0);
 
-      for (let i = allBullets.length - 1; i >= 0; i--) {
-        const bullet = allBullets[i];
-        if (!bullet.update()) {
-          allBullets.splice(i, 1);
-        }
-      }
+  ctx.drawImage(playerImg, player.x, player.y);
 
-      for (let i = allEnemies.length - 1; i >= 0; i--) {
-        const enemy = allEnemies[i];
-        if (enemy.update(allBullets)) {
-          score += 1;
-          allEnemies.splice(i, 1);
-        }
-      }
+  allBullets.forEach((b) => b.draw(ctx));
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(backgroundImg, 0, 0);
+  allEnemies.forEach((e) => {
+    ctx.drawImage(enemyImg, e.x, e.y);
+  });
 
-      ctx.drawImage(playerImg, player.x, player.y);
+  ctx.fillStyle = "white";
+  ctx.font = "24px sans-serif";
+  ctx.fillText("Score: " + score, 10, 30);
+  ctx.fillText("Level: " + player.level.levelNumber, 10, 56);
+  ctx.fillText("Health:", 150, 30);
 
-      allBullets.forEach((b) => b.draw(ctx));
-
-      allEnemies.forEach((e) => {
-        ctx.drawImage(enemyImg, e.x, e.y);
-      });
-
-      ctx.fillStyle = "white";
-      ctx.font = "24px sans-serif";
-      ctx.fillText("Score: " + score, 10, 30);
-      ctx.fillText("Level: " + player.level.levelNumber, 10, 56);
-      ctx.fillText("Health:", 150, 30);
-
-      const healthBarWidth = 200;
-      const healthBarHeight = 15;
-      const maxHealth = 10;
-
-      ctx.fillStyle = "white";
-      ctx.fillRect(150, 40, healthBarWidth, healthBarHeight);
-
-      const currentHealth = player.lives;
-      const currentHealthBarWidth = (currentHealth / maxHealth) * healthBarWidth;
+  ctx.fillRect(150, 40, 200, 15);
       
-      ctx.fillStyle = "red";
-      ctx.fillRect(150, 40, currentHealthBarWidth, healthBarHeight);
+  ctx.fillStyle = "red";
+  ctx.fillRect(150, 40, (player.lives / 10) * 200, 15);
 
-      requestAnimationFrame(draw);
-    }
+  requestAnimationFrame(loop);
+}
 
-    function isKeyPressed(key) {
-      return keyState[key] === true;
-    }
+function loop() {
+  update();
+  draw();
+}
 
-    const keyState = {};
+function isKeyPressed(key) {
+  return keyState[key] === true;
+}
 
-    window.addEventListener("keydown", (e) => {
-      keyState[e.key] = true;
-    });
+const keyState = {};
 
-    window.addEventListener("keyup", (e) => {
-      keyState[e.key] = false;
-    });
+window.addEventListener("keydown", (e) => {
+  keyState[e.key] = true;
+});
 
-    draw();
+window.addEventListener("keyup", (e) => {
+  keyState[e.key] = false;
+});
+
+loop();
